@@ -24,7 +24,7 @@ Update application.properties with your MySQL credentials.
 
 3. Run the application
 
-4️. Test APIs in Swagger
+4. Test APIs in Swagger
 
 Open http://localhost:8081/swagger-ui/index.html
 
