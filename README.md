@@ -21,10 +21,10 @@ Setup & Run Locally
 
 2. Configure the database
 Update application.properties with your MySQL credentials.
+
 3. Run the application
 
-mvn spring-boot:run
-4️⃣ Test APIs in Swagger
+4️. Test APIs in Swagger
 
 Open http://localhost:8081/swagger-ui/index.html
 
