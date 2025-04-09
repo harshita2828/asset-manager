@@ -2,7 +2,6 @@ Asset Manager App
 A Spring Boot application to manage and track assets efficiently.
 
 Features 
-User Authentication (JWT-based)
 Asset Management (CRUD operations)
 Categories for Assets
 Transaction Tracking (Purchase, Sale, Depreciation)
