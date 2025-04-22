@@ -8,6 +8,8 @@ import com.example.ams.entities.TransactionType;
 import com.example.ams.form.request.TransactionRequestDTO;
 import com.example.ams.form.response.TransactionResponseDTO;
 import com.example.ams.service.TransactionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -17,6 +19,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
+
+    private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
     private final TransactionRepository transactionRepository;
     private final AssetRepository assetRepository;
 
@@ -32,12 +36,14 @@ public class TransactionServiceImpl implements TransactionService {
                     transactionRequestDTO.getAssetId() == null ||
                     transactionRequestDTO.getTransactionType() == null ||
                     transactionRequestDTO.getAmount() == null) {
+                logger.error("Invalid request: All fields are required.");
                 throw new IllegalArgumentException("Invalid request: All fields are required.");
             }
 
             Optional<Asset> asset = assetRepository.findById(Long.parseLong(transactionRequestDTO.getAssetId()));
 
             if (asset.isEmpty()) {
+                logger.error("Asset not found for ID: {}", transactionRequestDTO.getAssetId());
                 throw new RuntimeException("Asset not found");
             }
 
@@ -49,6 +55,8 @@ public class TransactionServiceImpl implements TransactionService {
 
             Transaction savedTransaction = transactionRepository.save(transaction);
 
+            logger.info("Transaction saved successfully with ID: {}", savedTransaction.getId());
+
             return new TransactionResponseDTO(
                     savedTransaction.getId().toString(),
                     savedTransaction.getAsset().getName(),
@@ -57,6 +65,7 @@ public class TransactionServiceImpl implements TransactionService {
                     savedTransaction.getTransactionDate().toString()
             );
         } catch (Exception e) {
+            logger.error("Error saving transaction: {}", e.getMessage());
             throw new RuntimeException("Error saving transaction: " + e.getMessage());
         }
     }
@@ -67,8 +76,11 @@ public class TransactionServiceImpl implements TransactionService {
             List<Transaction> transactions = transactionRepository.findAll();
 
             if (transactions.isEmpty()) {
+                logger.error("Transaction not found");
                 throw new RuntimeException("No transactions found.");
             }
+
+            logger.info("Transcations retrieved successfully");
 
             return transactions.stream()
                     .map(transaction -> new TransactionResponseDTO(
@@ -80,62 +92,98 @@ public class TransactionServiceImpl implements TransactionService {
                     ))
                     .collect(Collectors.toList());
         } catch (Exception e) {
+            logger.error("Error fetching transactions: {}", e.getMessage());
             throw new RuntimeException("Error fetching transactions: " + e.getMessage());
         }
     }
 
     @Override
     public TransactionResponseDTO getTransactionById(String id) {
-        Transaction transaction = transactionRepository.findById(Long.parseLong(id))
-                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
-        return new TransactionResponseDTO(
-                transaction.getId().toString(),
-                transaction.getAsset().getName(),
-                transaction.getTransactionType().toString(),
-                transaction.getAmount().toString(),
-                transaction.getTransactionDate().toString()
-        );
+        try {
+            Optional<Transaction> transaction = transactionRepository.findById(Long.valueOf(id));
 
+            if (transaction.isEmpty()) {
+                logger.error("Transaction not found with ID: {}", id);
+                throw new RuntimeException("Transaction not found.");
+            }
+
+            logger.info("Transaction retrieved successfully with ID: {}", id);
+
+            return new TransactionResponseDTO(
+                    transaction.get().getId().toString(),
+                    transaction.get().getAsset().getName(),
+                    transaction.get().getTransactionType().toString(),
+                    transaction.get().getAmount().toString(),
+                    transaction.get().getTransactionDate().toString()
+            );
+        } catch (Exception e) {
+            logger.error("Error fetching transaction: {}", e.getMessage());
+            throw new RuntimeException("Error fetching transaction: " + e.getMessage());
+        }
     }
+
 
     @Override
     public TransactionResponseDTO updateTransaction(String id, TransactionRequestDTO transactionRequestDTO) {
-        Transaction transaction = transactionRepository.findById(Long.parseLong(id))
-                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+        try {
+            logger.info("Starting update for transaction with ID: {}", id);
 
-        if(transactionRequestDTO.getAssetId() != null) {
-            Optional<Asset> asset = assetRepository.findById(Long.parseLong(transactionRequestDTO.getAssetId()));
-            asset.ifPresent(transaction::setAsset);
+            Transaction transaction = transactionRepository.findById(Long.parseLong(id))
+                    .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+
+            logger.info("Transaction with ID: {} found.", id);
+
+            if (transactionRequestDTO.getAssetId() != null) {
+                Optional<Asset> asset = assetRepository.findById(Long.parseLong(transactionRequestDTO.getAssetId()));
+                if (asset.isPresent()) {
+                    transaction.setAsset(asset.get());
+                    logger.info("Asset updated for transaction ID: {}. New asset: {}", id, asset.get().getName());
+                } else {
+                    logger.warn("Asset not found with ID: {} for transaction ID: {}", transactionRequestDTO.getAssetId(), id);
+                }
+            }
+
+            if (transactionRequestDTO.getTransactionType() != null) {
+                transaction.setTransactionType(TransactionType.valueOf(transactionRequestDTO.getTransactionType()));
+                logger.info("Transaction type updated for transaction ID: {}. New type: {}", id, transaction.getTransactionType());
+            }
+
+            if (transactionRequestDTO.getAmount() != null) {
+                transaction.setAmount(Double.parseDouble(transactionRequestDTO.getAmount()));
+                logger.info("Amount updated for transaction ID: {}. New amount: {}", id, transaction.getAmount());
+            }
+
+            transaction.setTransactionDate(LocalDate.now());
+            logger.info("Transaction date updated for transaction ID: {}. New date: {}", id, transaction.getTransactionDate());
+
+            Transaction updatedTransaction = transactionRepository.save(transaction);
+
+            logger.info("Transaction with ID: {} updated successfully.", id);
+
+            return new TransactionResponseDTO(
+                    updatedTransaction.getId().toString(),
+                    updatedTransaction.getAsset().getName(),
+                    updatedTransaction.getTransactionType().toString(),
+                    updatedTransaction.getAmount().toString(),
+                    updatedTransaction.getTransactionDate().toString()
+            );
+        } catch (Exception e) {
+            logger.error("Error updating transaction with ID: {}. Error: {}", id, e.getMessage());
+            throw new RuntimeException("Error updating transaction: " + e.getMessage());
         }
-
-        if(transactionRequestDTO.getTransactionType() != null) {
-            transaction.setTransactionType(TransactionType.valueOf(transactionRequestDTO.getTransactionType()));
-        }
-
-        if(transactionRequestDTO.getAmount() != null) {
-            transaction.setAmount(Double.parseDouble(transactionRequestDTO.getAmount()));
-        }
-
-        transaction.setTransactionDate(LocalDate.now());
-
-        Transaction updatedTransaction = transactionRepository.save(transaction);
-
-        return new TransactionResponseDTO(
-                updatedTransaction.getId().toString(),
-                updatedTransaction.getAsset().getName(),
-                updatedTransaction.getTransactionType().toString(),
-                updatedTransaction.getAmount().toString(),
-                updatedTransaction.getTransactionDate().toString()
-        );
     }
+
 
     @Override
     public void deleteTransaction(String id) {
         try {
             if (!transactionRepository.existsById(Long.valueOf(id))) {
+                logger.error("Transaction not found with ID: {}", id);
                 throw new RuntimeException("Transaction not found.");
             }
             transactionRepository.deleteById(Long.valueOf(id));
+
+            logger.info("Transaction with ID: {} deleted successfully", id);
         } catch (Exception e) {
             throw new RuntimeException("Error deleting transaction: " + e.getMessage());
         }
