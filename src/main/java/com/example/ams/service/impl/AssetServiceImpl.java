@@ -9,6 +9,8 @@ import com.example.ams.entities.User;
 import com.example.ams.form.request.AssetRequestDTO;
 import com.example.ams.form.response.AssetResponseDTO;
 import com.example.ams.service.AssetService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -18,6 +20,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class AssetServiceImpl implements AssetService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AssetServiceImpl.class);
     private final AssetRepository assetRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
@@ -37,6 +41,7 @@ public class AssetServiceImpl implements AssetService {
                     assetRequestDTO.getValue() == null || assetRequestDTO.getValue().trim().isEmpty() ||
                     assetRequestDTO.getOwnerId() == null || assetRequestDTO.getOwnerId().trim().isEmpty() ||
                     assetRequestDTO.getCategoryId() == null || assetRequestDTO.getCategoryId().trim().isEmpty()) {
+                logger.error("Invalid request: All fields are required");
                 throw new IllegalArgumentException("Invalid request: All fields are required");
             }
 
@@ -46,6 +51,7 @@ public class AssetServiceImpl implements AssetService {
                     Double.parseDouble(assetRequestDTO.getValue())
             );
             if (existingAsset.isPresent()) {
+                logger.error("Asset with same name, type and value akready exists");
                 throw new RuntimeException("Asset with same name, type, and value already exists.");
             }
 
@@ -53,6 +59,7 @@ public class AssetServiceImpl implements AssetService {
             Optional<Category> category = categoryRepository.findById(Long.parseLong(assetRequestDTO.getCategoryId()));
 
             if (user.isEmpty() || category.isEmpty()) {
+                logger.error("User or category does not exist.");
                 throw new RuntimeException("User or Category not found");
             }
 
@@ -66,6 +73,8 @@ public class AssetServiceImpl implements AssetService {
 
             Asset savedAsset = assetRepository.save(asset);
 
+            logger.info("Asset saved in database");
+
             return new AssetResponseDTO(
                     savedAsset.getId().toString(),
                     savedAsset.getName(),
@@ -76,6 +85,7 @@ public class AssetServiceImpl implements AssetService {
                     savedAsset.getCategory().getName()
             );
         } catch (Exception e) {
+            logger.error("Error saving transaction", e.getMessage());
             throw new RuntimeException("Error saving asset: " + e.getMessage());
         }
     }
@@ -86,7 +96,10 @@ public class AssetServiceImpl implements AssetService {
         try {
             List<Asset> assets = assetRepository.findAll();
 
+            logger.info("Assets retrieved");
+
             if (assets.isEmpty()) {
+                logger.error("No assets found.");
                 throw new RuntimeException("No assets found");
             }
 
@@ -102,6 +115,7 @@ public class AssetServiceImpl implements AssetService {
                     ))
                     .collect(Collectors.toList());
         } catch (Exception e) {
+            logger.error("Error fetching assest", e.getMessage());
             throw new RuntimeException("Error fetching assets: " + e.getMessage());
         }
     }
@@ -111,6 +125,7 @@ public class AssetServiceImpl implements AssetService {
         try {
             Asset asset = assetRepository.findById(Long.valueOf(id))
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
+            logger.error("Asset not found with id" + id);
 
             return new AssetResponseDTO(
                     asset.getId().toString(),
@@ -122,6 +137,7 @@ public class AssetServiceImpl implements AssetService {
                     asset.getCategory().getName()
             );
         } catch (Exception e) {
+            logger.error("Error getting asset with id: " + id);
             throw new RuntimeException("Error fetching asset: " + e.getMessage());
         }
     }
@@ -130,10 +146,13 @@ public class AssetServiceImpl implements AssetService {
     public void deleteAsset(String id) {
         try {
             if (!assetRepository.existsById(Long.valueOf(id))) {
+                logger.error("Asset not found to delete, id: " + id);
                 throw new RuntimeException("Asset not found");
             }
             assetRepository.deleteById(Long.valueOf(id));
+            logger.info("Assest deleted with id: " + id);
         } catch (Exception e) {
+            logger.error("Error while deleting asset with id: ", e.getMessage());
             throw new RuntimeException("Error deleting asset: " + e.getMessage());
         }
     }
@@ -143,6 +162,7 @@ public class AssetServiceImpl implements AssetService {
         try {
             Asset existingAsset = assetRepository.findById(Long.parseLong(id))
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
+            logger.error("Asset not able to update, id not found: " + id);
 
             if (assetRequestDTO.getName() != null || !assetRequestDTO.getName().trim().isEmpty()) {
                 existingAsset.setName(assetRequestDTO.getName().trim());
@@ -161,6 +181,7 @@ public class AssetServiceImpl implements AssetService {
                 if (user.isPresent()) {
                     existingAsset.setOwner(user.get());
                 } else {
+                    logger.error("User not found to delete asset with user id: ", assetRequestDTO.getOwnerId());
                     throw new RuntimeException("User not found");
                 }
             }
@@ -169,11 +190,13 @@ public class AssetServiceImpl implements AssetService {
                 if (category.isPresent()) {
                     existingAsset.setCategory(category.get());
                 } else {
+                    logger.error("Category not found to delete asset with asset id: " + assetRequestDTO.getCategoryId());
                     throw new RuntimeException("Category not found");
                 }
             }
 
             Asset updateAsset = assetRepository.save(existingAsset);
+            logger.info("Asset updated with id :" + id);
 
             return new AssetResponseDTO(
                     updateAsset.getId().toString(),
@@ -185,6 +208,7 @@ public class AssetServiceImpl implements AssetService {
                     updateAsset.getCategory().getName()
             );
         } catch (Exception e) {
+            logger.error("Error updating asset with id: " + id, e.getMessage());
             throw new RuntimeException("Error updating asset : " + e.getMessage());
         }
     }
