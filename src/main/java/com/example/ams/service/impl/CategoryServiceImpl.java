@@ -8,8 +8,8 @@ import com.example.ams.service.CategoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,123 +23,104 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public CategoryResponseDTO saveCategory(CategoryRequestDTO categoryRequestDTO) {
-        try {
-            if (categoryRequestDTO == null ||
-                    categoryRequestDTO.getName() == null || categoryRequestDTO.getName().trim().isEmpty() ||
-                    categoryRequestDTO.getDescription() == null || categoryRequestDTO.getDescription().trim().isEmpty()) {
-                logger.error("Name and description are required.");
-                throw new IllegalArgumentException("Invalid request: Name and Description are required.");
-            }
+    public CategoryResponseDTO saveCategory(CategoryRequestDTO dto) {
+        validateRequest(dto);
 
-            Optional<Category> existingCategory = categoryRepository.findByName(categoryRequestDTO.getName().trim());
-            logger.info("Category retrieved with name: " + categoryRequestDTO.getName());
+        String name = dto.getName().trim();
+        String description = dto.getDescription().trim();
 
-            if(existingCategory.isPresent()){
-                logger.error("Category already exists with name: " + categoryRequestDTO.getName());
-                throw new RuntimeException("Category with this name already exists.");
-            }
-
-            Category category = new Category();
-            category.setName(categoryRequestDTO.getName().trim());
-            category.setDescription(categoryRequestDTO.getDescription().trim());
-
-            Category savedCategory = categoryRepository.save(category);
-            logger.info("Category saved with id: " + savedCategory.getId());
-
-            return new CategoryResponseDTO(
-                    savedCategory.getId().toString(),
-                    savedCategory.getName(),
-                    savedCategory.getDescription()
-            );
-        } catch (Exception e) {
-            logger.error("Error while saving category: " + e.getMessage());
-            throw new RuntimeException("Error saving category: " + e.getMessage());
+        if (categoryRepository.findByName(name).isPresent()) {
+            logger.warn("Category already exists with name: {}", name);
+            throw new RuntimeException("Category with this name already exists.");
         }
+
+        Category category = new Category();
+        category.setName(name);
+        category.setDescription(description);
+
+        Category saved = categoryRepository.save(category);
+        logger.info("Category saved with id: {}", saved.getId());
+
+        return mapToDTO(saved);
     }
 
     @Override
     public List<CategoryResponseDTO> getAllCategories() {
-        try {
-            List<Category> categories = categoryRepository.findAll();
-            logger.info("Categories retrieved.");
-            if (categories.isEmpty()) {
-                logger.error("No categories in db.");
-                throw new RuntimeException("No categories found.");
-            }
+        List<Category> categories = categoryRepository.findAll();
+        logger.info("Fetched {} categories from DB", categories.size());
 
-            return categories.stream()
-                    .map(category -> new CategoryResponseDTO(
-                            category.getId().toString(),
-                            category.getName(),
-                            category.getDescription()
-                    ))
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            logger.info("Error while fetching categories: " + e.getMessage());
-            throw new RuntimeException("Error fetching categories: " + e.getMessage());
-        }
+        return categories.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
     @Override
     public void deleteCategory(String id) {
-        try {
-            if (!categoryRepository.existsById(Long.valueOf(id))) {
-                logger.error("Category not found with id: " + id);
-                throw new RuntimeException("Category not found.");
-            }
-            categoryRepository.deleteById(Long.valueOf(id));
-            logger.info("Category deleted with id: " + id);
-        } catch (Exception e) {
-            logger.info("Error while deleting category: " + e.getMessage());
-            throw new RuntimeException("Error deleting category: " + e.getMessage());
+        Long categoryId = parseId(id);
+        if (!categoryRepository.existsById(categoryId)) {
+            logger.warn("Category not found with id: {}", id);
+            throw new RuntimeException("Category not found.");
         }
+
+        categoryRepository.deleteById(categoryId);
+        logger.info("Category deleted with id: {}", id);
     }
 
     @Override
     public CategoryResponseDTO getCategoryById(String id) {
-        try {
-            Category category = categoryRepository.findById(Long.valueOf(id))
-                    .orElseThrow(() -> new RuntimeException("Category not found"));
+        Long categoryId = parseId(id);
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> {
+                    logger.warn("Category not found with id: {}", id);
+                    return new RuntimeException("Category not found.");
+                });
 
-            return new CategoryResponseDTO(
-                    category.getId().toString(),
-                    category.getName(),
-                    category.getDescription()
-            );
-        } catch (Exception e) {
-            logger.error("Error while fetching category: " + e.getMessage());
-            throw new RuntimeException("Error fetching category : " + e.getMessage());
-        }
+        return mapToDTO(category);
     }
 
     @Override
-    public CategoryResponseDTO updateCategory(String id, CategoryRequestDTO categoryRequestDTO) {
-        try {
-            if(categoryRequestDTO == null ||
-            categoryRequestDTO.getName() == null || categoryRequestDTO.getName().trim().isEmpty() ||
-            categoryRequestDTO.getDescription() == null || categoryRequestDTO.getDescription().trim().isEmpty()) {
-                logger.error("Name and description required for updating category.");
-                throw new IllegalArgumentException("Invalid request: Name and Description are required.");
-            }
+    public CategoryResponseDTO updateCategory(String id, CategoryRequestDTO dto) {
+        validateRequest(dto);
 
-            Category category = categoryRepository.findById(Long.valueOf(id))
-                    .orElseThrow(() -> new RuntimeException("Category not found."));
+        Long categoryId = parseId(id);
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> {
+                    logger.warn("Category not found for update, id: {}", id);
+                    return new RuntimeException("Category not found.");
+                });
 
-            category.setName(categoryRequestDTO.getName().trim());
-            category.setDescription(categoryRequestDTO.getDescription().trim());
+        category.setName(dto.getName().trim());
+        category.setDescription(dto.getDescription().trim());
 
-            Category updatedCategory = categoryRepository.save(category);
-            logger.info("Category updated with id: " + id);
+        Category updated = categoryRepository.save(category);
+        logger.info("Category updated with id: {}", id);
 
-            return new CategoryResponseDTO(
-                    updatedCategory.getId().toString(),
-                    updatedCategory.getName(),
-                    updatedCategory.getDescription()
-            );
-        } catch (Exception e) {
-            logger.error("Error while updating category: " + e.getMessage());
-            throw new RuntimeException("Error updating category: " + e.getMessage());
+        return mapToDTO(updated);
+    }
+
+    private void validateRequest(CategoryRequestDTO dto) {
+        if (dto == null ||
+                dto.getName() == null || dto.getName().trim().isEmpty() ||
+                dto.getDescription() == null || dto.getDescription().trim().isEmpty()) {
+            logger.error("Invalid category request: Name and Description are required.");
+            throw new IllegalArgumentException("Name and Description are required.");
         }
+    }
+
+    private Long parseId(String id) {
+        try {
+            return Long.valueOf(id);
+        } catch (NumberFormatException ex) {
+            logger.error("Invalid category ID format: {}", id);
+            throw new IllegalArgumentException("Invalid category ID.");
+        }
+    }
+
+    private CategoryResponseDTO mapToDTO(Category category) {
+        return new CategoryResponseDTO(
+                category.getId().toString(),
+                category.getName(),
+                category.getDescription()
+        );
     }
 }
