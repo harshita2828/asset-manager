@@ -1,11 +1,15 @@
 package com.example.ams.controller;
 
-import com.example.ams.form.request.TransactionRequestDTO;
-import com.example.ams.form.response.TransactionResponseDTO;
+import com.example.ams.datamodels.constants.Constants;
+import com.example.ams.datamodels.form.request.TransactionRequestDTO;
+import com.example.ams.datamodels.form.response.APIResponse;
+import com.example.ams.datamodels.form.response.TransactionResponseDTO;
 import com.example.ams.service.TransactionService;
+import org.apache.commons.lang3.ObjectUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,79 +17,102 @@ import java.util.List;
 @RestController
 @RequestMapping("/transactions")
 public class TransactionController {
+    private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);
     private final TransactionService transactionService;
+    private final Constants constants;
 
-    public TransactionController(TransactionService transactionService) {
+    public TransactionController(TransactionService transactionService, Constants constants) {
         this.transactionService = transactionService;
+        this.constants = constants;
     }
 
     @PostMapping
-    public ResponseEntity<?> createTransaction(@RequestBody TransactionRequestDTO request) {
+    public ResponseEntity<APIResponse<TransactionResponseDTO>> createTransaction(@RequestBody TransactionRequestDTO request) {
+        logger.info("Inside createTransaction.");
         try {
-            if (request == null || request.getTransactionType() == null || request.getAmount() == null) {
+            if (ObjectUtils.isEmpty(request) ||
+                    ObjectUtils.isEmpty(request.getTransactionType()) ||
+                    ObjectUtils.isEmpty(request.getAmount())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Invalid request: Transaction type and amount cannot be null");
+                        .body(new APIResponse<>(false, "Invalid request: Transaction type and amount cannot be null", null));
             }
 
             TransactionResponseDTO transaction = transactionService.saveTransaction(request);
-            return ResponseEntity.ok(transaction);
+            return ResponseEntity.ok(new APIResponse<>(true, "Transaction created successfully", transaction));
         } catch (Exception e) {
+            logger.error("Error creating transaction: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error creating transaction: " + e.getMessage());
+                    .body(new APIResponse<>(false, "Error creating transaction: " + e.getMessage(), null));
         }
     }
 
     @GetMapping
-    public ResponseEntity<?> getAllTransactions() {
+    public ResponseEntity<APIResponse<List<TransactionResponseDTO>>> getAllTransactions() {
+        logger.info("Inside getAllTransactions.");
         try {
             List<TransactionResponseDTO> transactions = transactionService.getAllTransactions();
             if (transactions == null || transactions.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).body("No transactions found");
+                return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                        .body(new APIResponse<>(true, "No transactions found", null));
             }
-            return ResponseEntity.ok(transactions);
+            return ResponseEntity.ok(new APIResponse<>(true, "Transactions fetched successfully", transactions));
         } catch (Exception e) {
+            logger.error("Error fetching transactions: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error fetching transactions: " + e.getMessage());
-        }
-    }
-
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteTransaction(@PathVariable("id") String id) {
-        try {
-            transactionService.deleteTransaction(id);
-            return ResponseEntity.ok("Transaction deleted successfully");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Transaction not found: " + e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error deleting transaction: " + e.getMessage());
-        }
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateTransaction(@PathVariable("id") String id, @RequestBody TransactionRequestDTO transactionRequestDTO) {
-        try {
-            TransactionResponseDTO updateTransaction = transactionService.updateTransaction(id, transactionRequestDTO);
-            return ResponseEntity.ok(updateTransaction);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Transaction not found: " + e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error updating transaction: " + e.getMessage());
+                    .body(new APIResponse<>(false, "Error fetching transactions: " + e.getMessage(), null));
         }
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getTransactionById(@PathVariable("id") String id) {
+    public ResponseEntity<APIResponse<TransactionResponseDTO>> getTransactionById(@PathVariable("id") String id) {
+        logger.info("Inside getTransactionById.");
         try {
-            TransactionResponseDTO transactionResponseDTO = transactionService.getTransactionById(id);
-            return ResponseEntity.ok(transactionResponseDTO);
+            TransactionResponseDTO transaction = transactionService.getTransactionById(id);
+            return ResponseEntity.ok(new APIResponse<>(true, "Transaction fetched successfully", transaction));
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Transaction not found: " + e.getMessage());
+            logger.error(constants.TNX_NOT_FOUND, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new APIResponse<>(false, constants.TNX_NOT_FOUND + e.getMessage(), null));
         } catch (Exception e) {
+            logger.error("Error fetching transaction: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error fetching transaction: " + e.getMessage());
+                    .body(new APIResponse<>(false, "Error fetching transaction: " + e.getMessage(), null));
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<APIResponse<TransactionResponseDTO>> updateTransaction(
+            @PathVariable("id") String id,
+            @RequestBody TransactionRequestDTO request) {
+        logger.info("Inside updateTransaction.");
+        try {
+            TransactionResponseDTO updatedTransaction = transactionService.updateTransaction(id, request);
+            return ResponseEntity.ok(new APIResponse<>(true, "Transaction updated successfully", updatedTransaction));
+        } catch (RuntimeException e) {
+            logger.error(constants.TNX_NOT_FOUND, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new APIResponse<>(false, constants.TNX_NOT_FOUND + e.getMessage(), null));
+        } catch (Exception e) {
+            logger.error("Error updating transaction: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new APIResponse<>(false, "Error updating transaction: " + e.getMessage(), null));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<APIResponse<Void>> deleteTransaction(@PathVariable("id") String id) {
+        logger.info("Inside deleteTransaction.");
+        try {
+            transactionService.deleteTransaction(id);
+            return ResponseEntity.ok(new APIResponse<>(true, "Transaction deleted successfully", null));
+        } catch (RuntimeException e) {
+            logger.error(constants.TNX_NOT_FOUND, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new APIResponse<>(false, constants.TNX_NOT_FOUND + e.getMessage(), null));
+        } catch (Exception e) {
+            logger.error("Error deleting transaction: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new APIResponse<>(false, "Error deleting transaction: " + e.getMessage(), null));
         }
     }
 }

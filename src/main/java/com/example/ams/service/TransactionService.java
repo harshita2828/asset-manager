@@ -1,7 +1,7 @@
 package com.example.ams.service;
 
-import com.example.ams.form.request.TransactionRequestDTO;
-import com.example.ams.form.response.TransactionResponseDTO;
+import com.example.ams.datamodels.form.request.TransactionRequestDTO;
+import com.example.ams.datamodels.form.response.TransactionResponseDTO;
 import java.util.List;
 
 public interface TransactionService {

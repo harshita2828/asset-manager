@@ -1,7 +1,7 @@
 package com.example.ams.service;
 
-import com.example.ams.form.request.UserRequestDTO;
-import com.example.ams.form.response.UserResponseDTO;
+import com.example.ams.datamodels.form.request.UserRequestDTO;
+import com.example.ams.datamodels.form.response.UserResponseDTO;
 import java.util.List;
 
 public interface UserService {

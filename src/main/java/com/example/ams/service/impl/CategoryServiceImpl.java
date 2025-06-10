@@ -1,9 +1,10 @@
 package com.example.ams.service.impl;
 
 import com.example.ams.dao.CategoryRepository;
-import com.example.ams.entities.Category;
-import com.example.ams.form.request.CategoryRequestDTO;
-import com.example.ams.form.response.CategoryResponseDTO;
+import com.example.ams.datamodels.entities.Category;
+import com.example.ams.datamodels.form.request.CategoryRequestDTO;
+import com.example.ams.datamodels.form.response.CategoryResponseDTO;
+import com.example.ams.exceptionhandling.ResourceNotFound;
 import com.example.ams.service.CategoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +32,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (categoryRepository.findByName(name).isPresent()) {
             logger.warn("Category already exists with name: {}", name);
-            throw new RuntimeException("Category with this name already exists.");
+            throw new ResourceNotFound("Category with this name already exists.");
         }
 
         Category category = new Category();
@@ -59,7 +60,7 @@ public class CategoryServiceImpl implements CategoryService {
         Long categoryId = parseId(id);
         if (!categoryRepository.existsById(categoryId)) {
             logger.warn("Category not found with id: {}", id);
-            throw new RuntimeException("Category not found.");
+            throw new ResourceNotFound("Category not found.");
         }
 
         categoryRepository.deleteById(categoryId);

@@ -1,7 +1,7 @@
 package com.example.ams.service;
 
-import com.example.ams.form.request.CategoryRequestDTO;
-import com.example.ams.form.response.CategoryResponseDTO;
+import com.example.ams.datamodels.form.request.CategoryRequestDTO;
+import com.example.ams.datamodels.form.response.CategoryResponseDTO;
 import java.util.List;
 
 public interface CategoryService {

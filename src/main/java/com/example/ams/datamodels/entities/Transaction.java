@@ -1,4 +1,4 @@
-package com.example.ams.entities;
+package com.example.ams.datamodels.entities;
 
 import jakarta.persistence.*;
 

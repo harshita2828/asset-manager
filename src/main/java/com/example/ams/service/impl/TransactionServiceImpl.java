@@ -2,11 +2,12 @@ package com.example.ams.service.impl;
 
 import com.example.ams.dao.AssetRepository;
 import com.example.ams.dao.TransactionRepository;
-import com.example.ams.entities.Asset;
-import com.example.ams.entities.Transaction;
-import com.example.ams.entities.TransactionType;
-import com.example.ams.form.request.TransactionRequestDTO;
-import com.example.ams.form.response.TransactionResponseDTO;
+import com.example.ams.datamodels.entities.Asset;
+import com.example.ams.datamodels.entities.Transaction;
+import com.example.ams.datamodels.entities.TransactionType;
+import com.example.ams.datamodels.form.request.TransactionRequestDTO;
+import com.example.ams.datamodels.form.response.TransactionResponseDTO;
+import com.example.ams.exceptionhandling.ResourceNotFound;
 import com.example.ams.service.TransactionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +45,7 @@ public class TransactionServiceImpl implements TransactionService {
 
             if (asset.isEmpty()) {
                 logger.error("Asset not found for ID: {}", transactionRequestDTO.getAssetId());
-                throw new RuntimeException("Asset not found");
+                throw new ResourceNotFound("Asset not found");
             }
 
             Transaction transaction = new Transaction();
@@ -65,8 +66,7 @@ public class TransactionServiceImpl implements TransactionService {
                     savedTransaction.getTransactionDate().toString()
             );
         } catch (Exception e) {
-            logger.error("Error saving transaction: {}", e.getMessage());
-            throw new RuntimeException("Error saving transaction: " + e.getMessage());
+            throw new ResourceNotFound("Error saving transaction: " + e.getMessage());
         }
     }
 
@@ -77,7 +77,7 @@ public class TransactionServiceImpl implements TransactionService {
 
             if (transactions.isEmpty()) {
                 logger.error("Transaction not found");
-                throw new RuntimeException("No transactions found.");
+                throw new ResourceNotFound("No transactions found.");
             }
 
             logger.info("Transcations retrieved successfully");
@@ -92,8 +92,7 @@ public class TransactionServiceImpl implements TransactionService {
                     ))
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("Error fetching transactions: {}", e.getMessage());
-            throw new RuntimeException("Error fetching transactions: " + e.getMessage());
+            throw new ResourceNotFound("Error fetching transactions: " + e.getMessage());
         }
     }
 
@@ -104,7 +103,7 @@ public class TransactionServiceImpl implements TransactionService {
 
             if (transaction.isEmpty()) {
                 logger.error("Transaction not found with ID: {}", id);
-                throw new RuntimeException("Transaction not found.");
+                throw new ResourceNotFound("Transaction not found.");
             }
 
             logger.info("Transaction retrieved successfully with ID: {}", id);
@@ -117,8 +116,7 @@ public class TransactionServiceImpl implements TransactionService {
                     transaction.get().getTransactionDate().toString()
             );
         } catch (Exception e) {
-            logger.error("Error fetching transaction: {}", e.getMessage());
-            throw new RuntimeException("Error fetching transaction: " + e.getMessage());
+            throw new ResourceNotFound("Error fetching transaction: " + e.getMessage());
         }
     }
 
@@ -168,8 +166,7 @@ public class TransactionServiceImpl implements TransactionService {
                     updatedTransaction.getTransactionDate().toString()
             );
         } catch (Exception e) {
-            logger.error("Error updating transaction with ID: {}. Error: {}", id, e.getMessage());
-            throw new RuntimeException("Error updating transaction: " + e.getMessage());
+            throw new ResourceNotFound("Error updating transaction: " + e.getMessage());
         }
     }
 
@@ -179,13 +176,13 @@ public class TransactionServiceImpl implements TransactionService {
         try {
             if (!transactionRepository.existsById(Long.valueOf(id))) {
                 logger.error("Transaction not found with ID: {}", id);
-                throw new RuntimeException("Transaction not found.");
+                throw new ResourceNotFound("Transaction not found.");
             }
             transactionRepository.deleteById(Long.valueOf(id));
 
             logger.info("Transaction with ID: {} deleted successfully", id);
         } catch (Exception e) {
-            throw new RuntimeException("Error deleting transaction: " + e.getMessage());
+            throw new ResourceNotFound("Error deleting transaction: " + e.getMessage());
         }
     }
 }

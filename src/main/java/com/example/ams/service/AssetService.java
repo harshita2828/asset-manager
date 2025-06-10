@@ -1,7 +1,7 @@
 package com.example.ams.service;
 
-import com.example.ams.form.request.AssetRequestDTO;
-import com.example.ams.form.response.AssetResponseDTO;
+import com.example.ams.datamodels.form.request.AssetRequestDTO;
+import com.example.ams.datamodels.form.response.AssetResponseDTO;
 import java.util.List;
 
 public interface AssetService {

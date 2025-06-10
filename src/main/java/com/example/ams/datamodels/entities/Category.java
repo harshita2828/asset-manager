@@ -1,9 +1,24 @@
-package com.example.ams.form.request;
+package com.example.ams.datamodels.entities;
 
+import jakarta.persistence.*;
 
-public class CategoryRequestDTO {
+@Entity
+@Table(name = "categories")
+public class Category {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String name;
     private String description;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 
     public String getName() {
         return name;

@@ -1,10 +1,11 @@
 package com.example.ams.service.impl;
 
 import com.example.ams.dao.UserRepository;
-import com.example.ams.entities.Role;
-import com.example.ams.entities.User;
-import com.example.ams.form.request.UserRequestDTO;
-import com.example.ams.form.response.UserResponseDTO;
+import com.example.ams.datamodels.entities.Role;
+import com.example.ams.datamodels.entities.User;
+import com.example.ams.datamodels.form.request.UserRequestDTO;
+import com.example.ams.datamodels.form.response.UserResponseDTO;
+import com.example.ams.exceptionhandling.ResourceNotFound;
 import com.example.ams.service.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,6 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponseDTO saveUser(UserRequestDTO userRequestDTO) {
         try {
-
             if (userRequestDTO == null ||
                     userRequestDTO.getName() == null || userRequestDTO.getName().trim().isEmpty() ||
                     userRequestDTO.getEmail() == null || userRequestDTO.getEmail().trim().isEmpty() ||
@@ -36,19 +36,14 @@ public class UserServiceImpl implements UserService {
             }
 
             if (userRepository.findByEmail(userRequestDTO.getEmail()).isPresent()) {
-                throw new RuntimeException("Email already in use");
+                throw new ResourceNotFound("Email already in use");
             }
 
             User user = new User();
             user.setName(userRequestDTO.getName());
             user.setEmail(userRequestDTO.getEmail());
             user.setPassword(passwordEncoder.encode(userRequestDTO.getPassword()));
-
-            try {
-                user.setRole(Role.valueOf(userRequestDTO.getRole().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Invalid role specified.");
-            }
+            user.setRole(parseRole(userRequestDTO.getRole()));
 
             User savedUser = userRepository.save(user);
 
@@ -59,7 +54,7 @@ public class UserServiceImpl implements UserService {
                     savedUser.getRole().toString()
             );
         } catch (Exception e) {
-            throw new RuntimeException("Error saving user: " + e.getMessage());
+            throw new ResourceNotFound("Error saving user: " + e.getMessage());
         }
     }
 
@@ -68,7 +63,7 @@ public class UserServiceImpl implements UserService {
         try {
             List<User> users = userRepository.findAll();
             if (users.isEmpty()) {
-                throw new RuntimeException("No users found.");
+                throw new ResourceNotFound("No users found.");
             }
 
             return users.stream()
@@ -80,7 +75,7 @@ public class UserServiceImpl implements UserService {
                     ))
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new RuntimeException("Error fetching users: " + e.getMessage());
+            throw new ResourceNotFound("Error fetching users: " + e.getMessage());
         }
     }
 
@@ -89,7 +84,7 @@ public class UserServiceImpl implements UserService {
         try {
             Optional<User> user = userRepository.findById(Long.valueOf(id));
             if (user.isEmpty()) {
-                throw new RuntimeException("User not found.");
+                throw new ResourceNotFound("User not found.");
             }
 
             return new UserResponseDTO(
@@ -99,7 +94,7 @@ public class UserServiceImpl implements UserService {
                     user.get().getRole().toString()
             );
         } catch (Exception e) {
-            throw new RuntimeException("Error fetching user: " + e.getMessage());
+            throw new ResourceNotFound("Error fetching user: " + e.getMessage());
         }
     }
 
@@ -107,11 +102,11 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(String id) {
         try {
             if (!userRepository.existsById(Long.valueOf(id))) {
-                throw new RuntimeException("User not found.");
+                throw new ResourceNotFound("User not found.");
             }
             userRepository.deleteById(Long.valueOf(id));
         } catch (Exception e) {
-            throw new RuntimeException("Error deleting user: " + e.getMessage());
+            throw new ResourceNotFound("Error deleting user: " + e.getMessage());
         }
     }
 
@@ -127,22 +122,18 @@ public class UserServiceImpl implements UserService {
             }
 
             User existingUser = userRepository.findById(Long.parseLong(id))
-                    .orElseThrow(() -> new RuntimeException("User not found."));
+                    .orElseThrow(() -> new ResourceNotFound("User not found."));
 
             Optional<User> userWithEmail = userRepository.findByEmail(userRequestDTO.getEmail());
             if(userWithEmail.isPresent() && !userWithEmail.get().getId().equals(existingUser.getId())) {
-                throw  new RuntimeException("Email is already in use by another user.");
+                throw  new ResourceNotFound("Email is already in use by another user.");
             }
 
             existingUser.setName(userRequestDTO.getName());
-            existingUser.setName(userRequestDTO.getEmail());
+            existingUser.setEmail(userRequestDTO.getEmail());
             existingUser.setPassword(passwordEncoder.encode(userRequestDTO.getPassword()));
+            existingUser.setRole(parseRole(userRequestDTO.getRole()));
 
-            try {
-                existingUser.setRole(Role.valueOf(userRequestDTO.getRole().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Invalid role specified");
-            }
 
             User updatesUser = userRepository.save(existingUser);
 
@@ -153,7 +144,16 @@ public class UserServiceImpl implements UserService {
                     updatesUser.getRole().toString()
             );
         } catch (Exception e) {
-            throw new RuntimeException("Error updating: " + e.getMessage());
+            throw new ResourceNotFound("Error updating: " + e.getMessage());
         }
     }
+
+    private Role parseRole(String roleStr) {
+        try {
+            return Role.valueOf(roleStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ResourceNotFound("Invalid role specified.");
+        }
+    }
+
 }

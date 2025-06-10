@@ -1,4 +1,4 @@
-package com.example.ams.form.request;
+package com.example.ams.datamodels.form.request;
 
 public class TransactionRequestDTO {
     private String assetId;

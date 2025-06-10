@@ -1,4 +1,4 @@
-package com.example.ams.form.response;
+package com.example.ams.datamodels.form.response;
 
 
 public class TransactionResponseDTO {

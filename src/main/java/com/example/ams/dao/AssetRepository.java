@@ -1,6 +1,6 @@
 package com.example.ams.dao;
 
-import com.example.ams.entities.Asset;
+import com.example.ams.datamodels.entities.Asset;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

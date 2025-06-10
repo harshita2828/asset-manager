@@ -3,15 +3,17 @@ package com.example.ams.service.impl;
 import com.example.ams.dao.AssetRepository;
 import com.example.ams.dao.CategoryRepository;
 import com.example.ams.dao.UserRepository;
-import com.example.ams.entities.Asset;
-import com.example.ams.entities.Category;
-import com.example.ams.entities.User;
-import com.example.ams.form.request.AssetRequestDTO;
-import com.example.ams.form.response.AssetResponseDTO;
+import com.example.ams.datamodels.entities.Asset;
+import com.example.ams.datamodels.entities.Category;
+import com.example.ams.datamodels.entities.User;
+import com.example.ams.datamodels.form.request.AssetRequestDTO;
+import com.example.ams.datamodels.form.response.AssetResponseDTO;
+import com.example.ams.exceptionhandling.ResourceNotFound;
 import com.example.ams.service.AssetService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -52,7 +54,7 @@ public class AssetServiceImpl implements AssetService {
             );
             if (existingAsset.isPresent()) {
                 logger.error("Asset with same name, type and value akready exists");
-                throw new RuntimeException("Asset with same name, type, and value already exists.");
+                throw new ResourceNotFound("Asset with same name, type, and value already exists.");
             }
 
             Optional<User> user = userRepository.findById(Long.parseLong(assetRequestDTO.getOwnerId()));
@@ -60,7 +62,7 @@ public class AssetServiceImpl implements AssetService {
 
             if (user.isEmpty() || category.isEmpty()) {
                 logger.error("User or category does not exist.");
-                throw new RuntimeException("User or Category not found");
+                throw new ResourceNotFound("User or Category not found");
             }
 
             Asset asset = new Asset();
@@ -85,8 +87,8 @@ public class AssetServiceImpl implements AssetService {
                     savedAsset.getCategory().getName()
             );
         } catch (Exception e) {
-            logger.error("Error saving transaction", e.getMessage());
-            throw new RuntimeException("Error saving asset: " + e.getMessage());
+            throw new ResourceNotFound("Error saving transaction: " + e.getMessage());
+
         }
     }
 
@@ -100,7 +102,7 @@ public class AssetServiceImpl implements AssetService {
 
             if (assets.isEmpty()) {
                 logger.error("No assets found.");
-                throw new RuntimeException("No assets found");
+                throw new ResourceNotFound("No assets found");
             }
 
             return assets.stream()
@@ -115,8 +117,7 @@ public class AssetServiceImpl implements AssetService {
                     ))
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("Error fetching assest", e.getMessage());
-            throw new RuntimeException("Error fetching assets: " + e.getMessage());
+            throw new ResourceNotFound("Error fetching assets: " + e.getMessage());
         }
     }
 
@@ -125,7 +126,7 @@ public class AssetServiceImpl implements AssetService {
         try {
             Asset asset = assetRepository.findById(Long.valueOf(id))
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
-            logger.error("Asset not found with id" + id);
+            logger.error("Asset not found with id: {}", id);
 
             return new AssetResponseDTO(
                     asset.getId().toString(),
@@ -137,8 +138,8 @@ public class AssetServiceImpl implements AssetService {
                     asset.getCategory().getName()
             );
         } catch (Exception e) {
-            logger.error("Error getting asset with id: " + id);
-            throw new RuntimeException("Error fetching asset: " + e.getMessage());
+            logger.error("Error getting asset with id: {}", id);
+            throw new ResourceNotFound("Error fetching asset: " + e.getMessage());
         }
     }
 
@@ -146,14 +147,13 @@ public class AssetServiceImpl implements AssetService {
     public void deleteAsset(String id) {
         try {
             if (!assetRepository.existsById(Long.valueOf(id))) {
-                logger.error("Asset not found to delete, id: " + id);
-                throw new RuntimeException("Asset not found");
+                logger.error("Asset not found to delete, id: {}", id);
+                throw new ResourceNotFound("Asset not found");
             }
             assetRepository.deleteById(Long.valueOf(id));
-            logger.info("Assest deleted with id: " + id);
+            logger.info("Assest deleted with id: {}", id);
         } catch (Exception e) {
-            logger.error("Error while deleting asset with id: ", e.getMessage());
-            throw new RuntimeException("Error deleting asset: " + e.getMessage());
+            logger.error("Error while deleting asset with id: {}", e.getMessage());
         }
     }
 
@@ -161,55 +161,65 @@ public class AssetServiceImpl implements AssetService {
     public AssetResponseDTO updateAsset(String id, AssetRequestDTO assetRequestDTO) {
         try {
             Asset existingAsset = assetRepository.findById(Long.parseLong(id))
-                    .orElseThrow(() -> new RuntimeException("Asset not found"));
-            logger.error("Asset not able to update, id not found: " + id);
+                    .orElseThrow(() -> {
+                        logger.error("Asset not able to update, id not found: {}", id);
+                        return new RuntimeException("Asset not found");
+                    });
 
-            if (assetRequestDTO.getName() != null || !assetRequestDTO.getName().trim().isEmpty()) {
+            if (StringUtils.hasText(assetRequestDTO.getName())) {
                 existingAsset.setName(assetRequestDTO.getName().trim());
             }
 
-            if (assetRequestDTO.getType() != null || !assetRequestDTO.getType().trim().isEmpty()) {
-                existingAsset.setType(assetRequestDTO.getType());
+            if (StringUtils.hasText(assetRequestDTO.getType())) {
+                existingAsset.setType(assetRequestDTO.getType().trim());
             }
 
-            if (assetRequestDTO.getValue() != null || !assetRequestDTO.getValue().trim().isEmpty()) {
-                existingAsset.setValue(Double.valueOf(assetRequestDTO.getValue()));
+            if (StringUtils.hasText(assetRequestDTO.getValue())) {
+                existingAsset.setValue(Double.parseDouble(assetRequestDTO.getValue().trim()));
             }
 
-            if (assetRequestDTO.getOwnerId() != null && !assetRequestDTO.getOwnerId().trim().isEmpty()) {
-                Optional<User> user = userRepository.findById(Long.parseLong(assetRequestDTO.getOwnerId()));
-                if (user.isPresent()) {
-                    existingAsset.setOwner(user.get());
-                } else {
-                    logger.error("User not found to delete asset with user id: ", assetRequestDTO.getOwnerId());
-                    throw new RuntimeException("User not found");
-                }
-            }
-            if (assetRequestDTO.getCategoryId() != null || !assetRequestDTO.getCategoryId().trim().isEmpty()) {
-                Optional<Category> category = categoryRepository.findById(Long.parseLong(assetRequestDTO.getCategoryId()));
-                if (category.isPresent()) {
-                    existingAsset.setCategory(category.get());
-                } else {
-                    logger.error("Category not found to delete asset with asset id: " + assetRequestDTO.getCategoryId());
-                    throw new RuntimeException("Category not found");
-                }
-            }
+            updateOwnerIfPresent(assetRequestDTO.getOwnerId(), existingAsset);
+            updateCategoryIfPresent(assetRequestDTO.getCategoryId(), existingAsset);
 
-            Asset updateAsset = assetRepository.save(existingAsset);
-            logger.info("Asset updated with id :" + id);
+            Asset updatedAsset = assetRepository.save(existingAsset);
+            logger.info("Asset updated with id: {}", id);
 
             return new AssetResponseDTO(
-                    updateAsset.getId().toString(),
-                    updateAsset.getName(),
-                    updateAsset.getType(),
-                    updateAsset.getValue().toString(),
-                    updateAsset.getPurchaseDate().toString(),
-                    updateAsset.getOwner().getName(),
-                    updateAsset.getCategory().getName()
+                    updatedAsset.getId().toString(),
+                    updatedAsset.getName(),
+                    updatedAsset.getType(),
+                    updatedAsset.getValue().toString(),
+                    updatedAsset.getPurchaseDate().toString(),
+                    updatedAsset.getOwner().getName(),
+                    updatedAsset.getCategory().getName()
             );
         } catch (Exception e) {
-            logger.error("Error updating asset with id: " + id, e.getMessage());
-            throw new RuntimeException("Error updating asset : " + e.getMessage());
+            throw new ResourceNotFound("Error updating asset : " + e.getMessage());
         }
     }
+
+    private void updateOwnerIfPresent(String ownerId, Asset asset) {
+        if (StringUtils.hasText(ownerId)) {
+            userRepository.findById(Long.parseLong(ownerId))
+                    .ifPresentOrElse(
+                            asset::setOwner,
+                            () -> {
+                                logger.error("User not found for asset update with owner id: {}", ownerId);
+                                throw new RuntimeException("User not found");
+                            });
+        }
+    }
+
+    private void updateCategoryIfPresent(String categoryId, Asset asset) {
+        if (StringUtils.hasText(categoryId)) {
+            categoryRepository.findById(Long.parseLong(categoryId))
+                    .ifPresentOrElse(
+                            asset::setCategory,
+                            () -> {
+                                logger.error("Category not found for asset update with category id: {}", categoryId);
+                                throw new RuntimeException("Category not found");
+                            });
+        }
+    }
+
 }
